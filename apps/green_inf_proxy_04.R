@@ -10,7 +10,8 @@ library(rgeos)
 # Data Source: https://data.cityofnewyork.us/Environment/DEP-Green-Infrastructure/spjh-pz7h
 greenInf.load <- readOGR("https://data.cityofnewyork.us/api/geospatial/spjh-pz7h?method=export&format=GeoJSON")
 greenInf.load@data <- cbind(greenInf.load@data, coordinates(greenInf.load))
-names(greenInf.load@data)[c(30,31)] <- c("longitude", "latitude")
+cols <- ncol(greenInf.load@data)
+names(greenInf.load@data)[c(cols-1,cols)] <- c("longitude", "latitude")
 boros.load <- readOGR("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=GeoJSON")
 # Add Boro centroids to dataframe
 boros.load@data <- cbind(boros.load@data, rgeos::gCentroid(boros.load, byid = TRUE)@coords)
@@ -29,16 +30,16 @@ ui <- navbarPage("NYC Green Infrastructure",
                           sidebarLayout(
                             sidebarPanel(
                               # Select Sewer Type
-                              selectInput("sewerSelect",
-                                          "Sewer Type",
-                                          levels(greenInf.load$sewer_type),
+                              selectInput(inputId = "sewerSelect",
+                                          label = "Sewer Type",
+                                          choices = c("Combined", "MS4", "Non-Combined", "On-site Management"),
                                           selected = c("MS4", "Non-combined"),
                                           selectize = T,
                                           multiple = T),
                               # Select NYC Borough
-                              radioButtons("boroSelect",
-                                           "Borough Filter:",
-                                           choices = levels(greenInf.load$borough),
+                              radioButtons(inputId = "boroSelect",
+                                           label = "Borough Filter:",
+                                           choices = unique(sort(greenInf.load$borough)),
                                            selected = "Bronx"),
                               # Number of projects
                               textOutput("text"),
@@ -71,7 +72,9 @@ ui <- navbarPage("NYC Green Infrastructure",
 
 # Define server logic required to create a map
 server <- function(input, output) {
+   
    values <- reactiveValues(removed = c())
+   
    # Basic Map
    output$leaflet <- renderLeaflet({
      leaflet() %>%
@@ -80,6 +83,7 @@ server <- function(input, output) {
        setView(-74.0060, 40.7128, 9) %>%
        addLayersControl(baseGroups = c("Google", "Wiki"))
    })
+   
    # Green Infrastructure Filtered data
    greenInfInputs <- reactive({
      greenInf <- greenInf.load 
@@ -110,12 +114,14 @@ server <- function(input, output) {
        clearGroup(group = "greenInf") %>%
        addAwesomeMarkers(icon = ~icons[sewer_type], popup = ~paste0("<b>", project_na, "</b>: ", sewer_type), group = "greenInf", layerId = ~asset_id)
    })
+   
    # Borough Filter
    boroInputs <- reactive({
      boros <- subset(boros.load, boro_name == input$boroSelect)
 
      return(boros)
    })
+   
    observe({
      boros <- boroInputs()
      

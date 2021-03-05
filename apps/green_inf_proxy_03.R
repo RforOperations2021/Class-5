@@ -10,7 +10,9 @@ library(rgeos)
 # Data Source: https://data.cityofnewyork.us/Environment/DEP-Green-Infrastructure/spjh-pz7h
 greenInf.load <- readOGR("https://data.cityofnewyork.us/api/geospatial/spjh-pz7h?method=export&format=GeoJSON")
 greenInf.load@data <- cbind(greenInf.load@data, coordinates(greenInf.load))
-names(greenInf.load@data)[c(30,31)] <- c("longitude", "latitude")
+cols <- ncol(greenInf.load@data)
+names(greenInf.load@data)[c(cols-1,cols)] <- c("longitude", "latitude")
+
 boros.load <- readOGR("https://data.cityofnewyork.us/api/geospatial/tqmj-j8zm?method=export&format=GeoJSON")
 # Add Boro centroids to dataframe
 boros.load@data <- cbind(boros.load@data, rgeos::gCentroid(boros.load, byid = TRUE)@coords)
@@ -28,18 +30,18 @@ ui <- navbarPage("NYC Green Infrastructure",
                  tabPanel("Map",
                           sidebarLayout(
                             sidebarPanel(
-                              # Select Sewer Type
-                              selectInput("sewerSelect",
-                                          "Sewer Type",
-                                          choices = unique(sort(greenInf.load$sewer_type)),
-                                          selected = c("MS4", "Non-combined"),
-                                          selectize = T,
-                                          multiple = T),
-                              # Select NYC Borough
-                              radioButtons("boroSelect",
-                                           "Borough Filter:",
-                                           choices = unique(sort(greenInf.load$borough)),
-                                           selected = "Bronx"),
+                               # Select Sewer Type
+                               selectInput("sewerSelect",
+                                           "Sewer Type",
+                                           choices = unique(sort(greenInf.load$sewer_type)),
+                                           selected = c("MS4", "Non-combined"),
+                                           selectize = T,
+                                           multiple = T),
+                               # Select NYC Borough
+                               radioButtons("boroSelect",
+                                            "Borough Filter:",
+                                            choices = sort(unique(boros.load$boro_name)),
+                                            selected = "Bronx"),
                               # Number of projects
                               textOutput("text")
                             ),
